@@ -19,7 +19,7 @@ button{font:inherit;cursor:pointer}
 #app{display:grid;grid-template-columns:370px 1fr;height:100%}
 aside{display:flex;flex-direction:column;min-height:0;background:#fff;border-right:1px solid var(--line)}
 header{padding:14px 16px 12px;border-bottom:1px solid var(--line)}
-h1{font-size:17px;margin:0 0 2px}
+h1{font-size:17px;margin:0 0 10px}
 .sub{margin:0 0 10px;color:var(--muted);font-size:12.5px}
 .primary{background:var(--accent);color:#fff;border:0;border-radius:6px;padding:7px 14px}
 #layers{flex:1;overflow:auto;padding:10px 12px;min-height:0}
@@ -46,7 +46,7 @@ input[type=color]{width:44px;height:26px;padding:0;border:1px solid var(--line);
 .hint{font-size:12px;color:var(--muted);margin:2px 0 4px}
 .base{border-top:1px solid var(--line);padding:10px 16px}
 .base h2,.help summary{font-size:13px;margin:0 0 6px;font-weight:600}
-.opts{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
+.opts{display:block}
 .opts label{display:flex;gap:6px;align-items:center}
 .help{border-top:1px solid var(--line);padding:8px 16px;font-size:12.5px;color:var(--muted)}
 .help summary{cursor:pointer;color:var(--ink)}
@@ -62,6 +62,11 @@ body.dragging #drop{display:flex}
 .pp th{text-align:left;padding:2px 10px 2px 0;color:var(--muted);font-weight:500;vertical-align:top}
 .pp td{padding:2px 0;word-break:break-word}
 .pt{font-weight:600;margin-bottom:4px}
+.lh,.meta{cursor:grab}
+.card.dragging{opacity:.65;box-shadow:0 4px 14px rgba(0,0,0,.18);position:relative;z-index:2}
+body.reordering,body.reordering *{cursor:grabbing!important;user-select:none}
+.nm[readonly]{cursor:grab;user-select:none;text-overflow:ellipsis}
+.nm[readonly]:hover,.nm[readonly]:focus{border-color:transparent;background:transparent;outline:none}
 .chk{display:flex;gap:6px;align-items:center;margin-top:8px;font-size:12.5px;color:var(--muted)}
 dialog{border:1px solid var(--line);border-radius:8px;padding:16px 18px;width:min(440px,92vw);color:var(--ink)}
 dialog::backdrop{background:rgba(28,43,54,.35)}
@@ -82,7 +87,6 @@ dialog menu{display:flex;gap:8px;justify-content:flex-end;padding:0;margin:14px 
   <aside>
     <header>
       <h1>แผนที่ซ้อนข้อมูล GIS</h1>
-      <p class="sub">เปิดไฟล์ GeoJSON หรือ shapefile (.zip) มาซ้อนกันและปรับสัญลักษณ์ ไฟล์ข้อมูลไม่ถูกอัปโหลดไปที่ใด</p>
       <button class="primary" id="add">เพิ่มไฟล์</button>
       <input id="file" type="file" multiple hidden accept=".geojson,.json,.zip,application/geo+json,application/json,application/zip">
       <label class="chk"><input type="checkbox" id="ignorePrj">เลือกระบบพิกัดเองเสมอ (ไม่ใช้ไฟล์ .prj ของ shapefile)</label>
@@ -95,6 +99,7 @@ dialog menu{display:flex;gap:8px;justify-content:flex-end;padding:0;margin:14px 
     </section>
     <details class="help">
       <summary>ไฟล์ที่รองรับและการเตรียมไฟล์</summary>
+      <p>สลับลำดับเลเยอร์: คลิกค้างที่แถวของเลเยอร์แล้วลากขึ้นลง (เลเยอร์ด้านบนจะซ้อนทับเลเยอร์ด้านล่าง) ดับเบิลคลิกที่ชื่อเพื่อเปลี่ยนชื่อ</p>
       <p>shapefile: บีบอัดเป็น .zip (ต้องมี .shp .shx .dbf และควรมี .prj) แล้วลากมาวางได้เลย ตารางภาษาไทยอ่านได้ทั้ง UTF-8 และ Windows-874 (TIS-620)</p>
       <p>ถ้าไฟล์ไม่ใช่พิกัดลองจิจูด/ละติจูด เว็บแมปจะถามระบบพิกัดต้นทางและแปลงเป็น WGS 84 ให้ ถ้าเลือกผิดโซนหรือ datum ตำแหน่งจะเลื่อนได้หลายร้อยเมตร ควรตรวจกับจุดที่รู้ตำแหน่ง</p>
       <p>GeoJSON จาก QGIS: คลิกขวาที่เลเยอร์ เลือก ส่งออก แล้วเลือก บันทึกวัตถุเป็น รูปแบบ GeoJSON</p>
@@ -146,10 +151,27 @@ function toast(msg){
 /* ---------- map + basemaps ---------- */
 const map=L.map('map',{preferCanvas:true}).setView([13.0,101.0],6);
 L.control.scale({imperial:false,position:'bottomleft'}).addTo(map);
+const T=(url,o={})=>L.tileLayer(url,{maxZoom:19,...o});
+const ESRI=(path,o={})=>T('https://server.arcgisonline.com/ArcGIS/rest/services/'+path+'/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri',...o});
+const OSMA='© OpenStreetMap contributors';
+const CARTO=(path)=>T('https://{s}.basemaps.cartocdn.com/'+path+'/{z}/{x}/{y}{r}.png',{subdomains:'abcd',attribution:OSMA+', © CARTO'});
+const hybrid=L.layerGroup([ESRI('World_Imagery',{attribution:'Esri, Maxar, Earthstar Geographics'}),ESRI('Reference/World_Boundaries_and_Places',{attribution:''})]);
+hybrid.setOpacity=o=>hybrid.eachLayer(l=>l.setOpacity(o));
 const BASE={
-  osm:{name:'แผนที่ถนน',layer:L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'})},
-  sat:{name:'ภาพถ่ายดาวเทียม',layer:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri, Maxar, Earthstar Geographics'})},
-  light:{name:'พื้นหลังสีอ่อน',layer:L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19,attribution:'© OpenStreetMap, © CARTO'})},
+  osm:{name:'OpenStreetMap (มาตรฐาน)',layer:T('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:OSMA})},
+  voyager:{name:'Carto Voyager (ถนนสีสบายตา)',layer:CARTO('rastertiles/voyager')},
+  light:{name:'Carto สีอ่อน',layer:CARTO('light_all')},
+  dark:{name:'Carto สีเข้ม',layer:CARTO('dark_all')},
+  sat:{name:'ภาพถ่ายดาวเทียม (Esri)',layer:ESRI('World_Imagery',{attribution:'Esri, Maxar, Earthstar Geographics'})},
+  hybrid:{name:'ภาพถ่ายดาวเทียม + ชื่อสถานที่ (Esri)',layer:hybrid},
+  topo:{name:'ภูมิประเทศ (Esri Topo)',layer:ESRI('World_Topo_Map')},
+  street:{name:'ถนน (Esri Street)',layer:ESRI('World_Street_Map')},
+  natgeo:{name:'National Geographic (Esri)',layer:ESRI('NatGeo_World_Map',{maxNativeZoom:16})},
+  gray:{name:'เทาอ่อน (Esri)',layer:ESRI('Canvas/World_Light_Gray_Base',{maxNativeZoom:16})},
+  relief:{name:'ความสูงต่ำ (Esri Shaded Relief)',layer:ESRI('World_Shaded_Relief',{maxNativeZoom:13})},
+  otm:{name:'OpenTopoMap (เส้นชั้นความสูง)',layer:T('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{subdomains:'abc',maxNativeZoom:17,attribution:'© OpenStreetMap contributors, SRTM, © OpenTopoMap (CC-BY-SA)'})},
+  hot:{name:'OSM Humanitarian',layer:T('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{subdomains:'abc',attribution:OSMA+', Humanitarian OpenStreetMap Team, OSM France'})},
+  cyclo:{name:'CyclOSM (จักรยาน)',layer:T('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',{subdomains:'abc',attribution:OSMA+', CyclOSM'})},
   none:{name:'ไม่มีพื้นหลัง',layer:null}
 };
 function setBase(k){
@@ -157,9 +179,7 @@ function setBase(k){
   curBase=BASE[k].layer;
   if(curBase){ curBase.addTo(map); curBase.setOpacity(baseOp); }
 }
-Object.entries(BASE).forEach(([k,b])=>{
-  $('#baseOpts').append(h('label',{},h('input',{type:'radio',name:'base',value:k,checked:k==='osm',onchange:()=>setBase(k)}),b.name));
-});
+$('#baseOpts').append(h('select',{'aria-label':'แผนที่พื้นหลัง',onchange:e=>setBase(e.target.value)},Object.entries(BASE).map(([k,b])=>h('option',{value:k},b.name))));
 $('#baseOp').addEventListener('input',e=>{
   baseOp=+e.target.value; $('#baseOpOut').textContent=Math.round(baseOp*100)+'%';
   if(curBase) curBase.setOpacity(baseOp);
@@ -190,14 +210,45 @@ function geomTypes(g,fl){
   else if(/Line/.test(g.type)) fl.line=true;
   else if(/Polygon/.test(g.type)) fl.poly=true;
 }
+/* polygon hatch fill: draw a repeating line pattern instead of a flat fill (canvas renderer) */
+(function(){
+  const orig=L.Canvas.prototype._fillStroke, cache={};
+  function pattern(ctx,type,color,S,w){
+    const m=L.Browser.retina?2:1, key=[type,color,S,w,m].join('|');
+    if(cache[key]) return cache[key];
+    const c=document.createElement('canvas'); c.width=c.height=Math.max(2,Math.round(S*m));
+    const g=c.getContext('2d'); g.scale(m,m); g.strokeStyle=color; g.lineWidth=w; g.beginPath();
+    if(type==='diag1'||type==='cross'){ g.moveTo(0,S); g.lineTo(S,0); g.moveTo(-S/2,S/2); g.lineTo(S/2,-S/2); g.moveTo(S/2,S*1.5); g.lineTo(S*1.5,S/2); }
+    if(type==='diag2'||type==='cross'){ g.moveTo(0,0); g.lineTo(S,S); g.moveTo(-S/2,S/2); g.lineTo(S/2,S*1.5); g.moveTo(S/2,-S/2); g.lineTo(S*1.5,S/2); }
+    if(type==='horiz'){ g.moveTo(0,S/2); g.lineTo(S,S/2); }
+    if(type==='vert'){ g.moveTo(S/2,0); g.lineTo(S/2,S); }
+    g.stroke();
+    const p=ctx.createPattern(c,'repeat');
+    if(p&&p.setTransform&&typeof DOMMatrix!=='undefined') p.setTransform(new DOMMatrix().scale(1/m));
+    return (cache[key]=p);
+  }
+  L.Canvas.include({_fillStroke(ctx,layer){
+    const o=layer.options;
+    if(o.fill&&o.hatch){
+      const hc=o.hatch, fc=o.fillColor||o.color, rule=o.fillRule||'evenodd';
+      if(hc.bg>0){ ctx.globalAlpha=hc.bg; ctx.fillStyle=fc; ctx.fill(rule); }
+      ctx.globalAlpha=o.fillOpacity; ctx.fillStyle=pattern(ctx,hc.type,fc,hc.spacing,hc.width); ctx.fill(rule);
+      o.fill=false;
+      try{ orig.call(this,ctx,layer); } finally{ o.fill=true; }
+      return;
+    }
+    orig.call(this,ctx,layer);
+  }});
+})();
 function styleFor(lyr,f){
   const s=lyr.style;
-  const o={color:s.color,weight:s.weight,opacity:s.opacity,fillColor:s.fillColor,fillOpacity:s.fillOpacity,radius:s.radius,dashArray:DASH[s.dash]};
+  const o={color:s.color,weight:s.weight,opacity:s.opacity,fillColor:s.fillColor,fillOpacity:s.fillOpacity,radius:s.radius,dashArray:DASH[s.dash],hatch:null};
   if(lyr.cat.field){
     const v=String((f.properties||{})[lyr.cat.field]??'(ว่าง)');
     const c=lyr.cat.colors[v];
     if(c){ if(/Line/.test(f.geometry?.type||'')) o.color=c; else o.fillColor=c; }
   }
+  if(s.pattern&&s.pattern!=='solid'&&/Polygon/.test(f.geometry?.type||'')) o.hatch={type:s.pattern,spacing:s.hSpacing,width:s.hWidth,bg:s.hBg};
   return o;
 }
 function popupHtml(lyr,f){
@@ -333,7 +384,7 @@ async function addLayer(name,raw){
   const fl={poly:false,line:false,point:false}, keys=new Set();
   fc.features.forEach((f,i)=>{ geomTypes(f.geometry,fl); if(i<500) Object.keys(f.properties||{}).forEach(k=>keys.add(k)); });
   const color=PALETTE[(id-1)%PALETTE.length];
-  const style={color,weight:2,opacity:1,fillColor:color,fillOpacity:.3,radius:5,dash:'solid'};
+  const style={color,weight:2,opacity:1,fillColor:color,fillOpacity:.3,radius:5,dash:'solid',pattern:'solid',hSpacing:8,hWidth:1.5,hBg:.1};
   if(fl.line&&!fl.poly) style.weight=3;
   if(fl.point&&!fl.poly&&!fl.line){ style.color='#ffffff'; style.weight=1; style.fillOpacity=.9; style.radius=6; }
   const lyr={id,name,visible:true,open:true,pane,paneName,fc,flags:fl,fields:[...keys],style,cat:{field:'',colors:{},counts:{}},label:''};
@@ -379,7 +430,11 @@ function card(lyr){
   const el=h('div',{class:'card'},
     h('div',{class:'lh'},
       h('input',{type:'checkbox',checked:lyr.visible,'aria-label':'แสดงเลเยอร์',onchange:e=>{ lyr.visible=e.target.checked; lyr.visible?map.addLayer(lyr.gj):map.removeLayer(lyr.gj); }}),
-      h('input',{class:'nm',type:'text',value:lyr.name,'aria-label':'ชื่อเลเยอร์',oninput:e=>{ lyr.name=e.target.value; }}),
+      h('input',{class:'nm',type:'text',value:lyr.name,readonly:true,title:'คลิกค้างแล้วลากเพื่อสลับลำดับ ดับเบิลคลิกเพื่อเปลี่ยนชื่อ','aria-label':'ชื่อเลเยอร์',
+        oninput:e=>{ lyr.name=e.target.value; },
+        ondblclick:e=>{ e.target.removeAttribute('readonly'); e.target.focus(); e.target.select(); },
+        onblur:e=>e.target.setAttribute('readonly',''),
+        onkeydown:e=>{ if(e.key==='Enter') e.target.blur(); }}),
       btn('ซูม','ซูมไปที่เลเยอร์',()=>zoomTo(lyr)),
       btn('▲','เลื่อนขึ้น',()=>move(lyr,1),idx===lyrs.length-1),
       btn('▼','เลื่อนลง',()=>move(lyr,-1),idx===0),
@@ -388,6 +443,8 @@ function card(lyr){
     ),
     h('div',{class:'meta'},lyr.fc.features.length.toLocaleString('th-TH')+' วัตถุ ('+(types||'ไม่ทราบชนิด')+')')
   );
+  el.dataset.id=lyr.id;
+  enableDrag([el.querySelector('.lh'),el.querySelector('.meta')],el);
   if(lyr.open){
     const body=h('div',{class:'body'});
     body.append(
@@ -395,10 +452,23 @@ function card(lyr){
       row('ความหนาเส้น',range(0,10,0.5,s.weight,v=>{ s.weight=v; rs(); })),
       row('ความทึบเส้น',range(0,1,0.05,s.opacity,v=>{ s.opacity=v; rs(); },pct))
     );
+    const pat=fl.poly&&s.pattern!=='solid';
     if(fl.poly||fl.point) body.append(
-      row('สีเติม',color(s.fillColor,v=>{ s.fillColor=v; rs(); })),
-      row('ความทึบสีเติม',range(0,1,0.05,s.fillOpacity,v=>{ s.fillOpacity=v; rs(); },pct))
+      row(pat?'สีเส้นลาย':'สีเติม',color(s.fillColor,v=>{ s.fillColor=v; rs(); })),
+      row(pat?'ความทึบเส้นลาย':'ความทึบสีเติม',range(0,1,0.05,s.fillOpacity,v=>{ s.fillOpacity=v; rs(); },pct))
     );
+    if(fl.poly){
+      body.append(row('ลายเติมพื้นที่',select([['solid','ทึบ'],['diag1','เส้นทะแยง ╱'],['diag2','เส้นทะแยง ╲'],['cross','ทะแยงตัดกัน'],['horiz','เส้นนอน'],['vert','เส้นตั้ง']],s.pattern,v=>{
+        if(s.pattern==='solid'&&v!=='solid'){ s._fo=s.fillOpacity; s.fillOpacity=.9; }
+        else if(s.pattern!=='solid'&&v==='solid'){ s.fillOpacity=s._fo??.3; }
+        s.pattern=v; rs(); renderList();
+      })));
+      if(pat) body.append(
+        row('ระยะห่างลาย',range(4,40,1,s.hSpacing,v=>{ s.hSpacing=v; rs(); })),
+        row('ความหนาเส้นลาย',range(0.5,6,0.5,s.hWidth,v=>{ s.hWidth=v; rs(); })),
+        row('พื้นใต้ลาย',range(0,1,0.05,s.hBg,v=>{ s.hBg=v; rs(); },pct))
+      );
+    }
     if(fl.point) body.append(row('ขนาดจุด',range(2,24,1,s.radius,v=>{ s.radius=v; rs(); })));
     if(fl.line||fl.poly) body.append(row('ลายเส้น',select([['solid','เส้นทึบ'],['dash','เส้นประ'],['dot','จุด']],s.dash,v=>{ s.dash=v; rs(); })));
     body.append(row('แบ่งสีตามฟิลด์',select([['','ไม่ใช้'],...lyr.fields.map(k=>[k,k])],lyr.cat.field,v=>setCat(lyr,v))));
@@ -414,6 +484,38 @@ function card(lyr){
     el.append(body);
   }
   return el;
+}
+function enableDrag(handles,cardEl){
+  handles.forEach(hd=>hd.addEventListener('pointerdown',e=>{
+    if(e.button!==0||e.target.closest('button,input[type=checkbox],input.nm:not([readonly])')) return;
+    const box=$('#layers'), startY=e.clientY; let dragging=false;
+    const stopSel=ev=>ev.preventDefault();
+    const onMove=ev=>{
+      if(!dragging){
+        if(Math.abs(ev.clientY-startY)<5) return;
+        dragging=true; cardEl.classList.add('dragging'); document.body.classList.add('reordering'); document.addEventListener('selectstart',stopSel);
+      }
+      const br=box.getBoundingClientRect();
+      if(ev.clientY<br.top+30) box.scrollTop-=12; else if(ev.clientY>br.bottom-30) box.scrollTop+=12;
+      let before=null;
+      for(const c of box.querySelectorAll('.card')){
+        if(c===cardEl) continue;
+        const r=c.getBoundingClientRect();
+        if(ev.clientY<r.top+r.height/2){ before=c; break; }
+      }
+      if(before){ if(cardEl.nextElementSibling!==before) box.insertBefore(cardEl,before); }
+      else if(box.lastElementChild!==cardEl) box.appendChild(cardEl);
+    };
+    const end=()=>{
+      document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',end);
+      document.removeEventListener('pointercancel',end); document.removeEventListener('selectstart',stopSel);
+      if(!dragging) return;
+      document.body.classList.remove('reordering'); cardEl.classList.remove('dragging');
+      const ids=[...box.querySelectorAll('.card')].map(c=>+c.dataset.id).reverse();
+      lyrs=ids.map(id=>lyrs.find(l=>l.id===id)); setZ(); renderList();
+    };
+    document.addEventListener('pointermove',onMove); document.addEventListener('pointerup',end); document.addEventListener('pointercancel',end);
+  }));
 }
 function renderList(){
   const box=$('#layers'); box.replaceChildren();
