@@ -1,544 +1,456 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>แดชบอร์ดความพร้อมปลูกต้นไม้</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>แผนที่ซ้อนข้อมูล GIS</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/proj4@2.9.2/dist/proj4.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/shpjs@4.0.4/dist/shp.min.js"></script>
 <style>
-  :root{
-    --bg: #F6F4EC;
-    --surface: #FFFFFF;
-    --surface-2: #EFEDE2;
-    --border: rgba(31,54,42,0.12);
-    --border-strong: rgba(31,54,42,0.22);
-    --forest-900: #14352A;
-    --forest-700: #1F6D4C;
-    --forest-500: #2E8F63;
-    --forest-100: #DCEEE2;
-    --amber-600: #B9791C;
-    --amber-100: #FBEBD3;
-    --red-600: #B23B2E;
-    --red-100: #F8E1DD;
-    --gray-600: #6B7268;
-    --gray-100: #E8E6DB;
-    --text-primary: #1B241E;
-    --text-secondary: #5C6459;
-    --text-muted: #8A8F82;
-    --radius: 10px;
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0;
-    font-family:'Sarabun', sans-serif;
-    background:var(--bg);
-    color:var(--text-primary);
-    line-height:1.6;
-  }
-  .wrap{max-width:1180px; margin:0 auto; padding:0 20px 48px;}
-
-  header.top{
-    background:var(--forest-900);
-    color:#fff;
-    padding:22px 0;
-    margin-bottom:24px;
-  }
-  header.top .inner{
-    max-width:1180px; margin:0 auto; padding:0 20px;
-    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
-  }
-  .brand{display:flex; align-items:center; gap:12px;}
-  .brand svg{flex-shrink:0;}
-  .brand-text h1{font-size:19px; font-weight:600; margin:0;}
-  .brand-text p{font-size:13px; margin:2px 0 0; color:rgba(255,255,255,0.72);}
-  .status-line{display:flex; align-items:center; gap:14px; font-size:13px; color:rgba(255,255,255,0.8);}
-  #lastUpdated{white-space:nowrap;}
-  button#refreshBtn{
-    display:flex; align-items:center; gap:6px;
-    background:rgba(255,255,255,0.1);
-    border:1px solid rgba(255,255,255,0.28);
-    color:#fff;
-    padding:7px 14px;
-    border-radius:8px;
-    font-family:inherit;
-    font-size:13px;
-    cursor:pointer;
-    transition:background .15s;
-  }
-  button#refreshBtn:hover{background:rgba(255,255,255,0.18);}
-  button#refreshBtn:active{transform:scale(0.98);}
-  button#refreshBtn svg{transition:transform .5s;}
-  button#refreshBtn.spinning svg{transform:rotate(360deg);}
-
-  #stateBanner{
-    display:none;
-    background:var(--amber-100); color:var(--amber-600);
-    border:1px solid rgba(185,121,28,0.3);
-    border-radius:var(--radius);
-    padding:14px 16px;
-    font-size:14px;
-    margin-bottom:20px;
-  }
-  #stateBanner.error{background:var(--red-100); color:var(--red-600); border-color:rgba(178,59,46,0.3);}
-  #stateBanner a{color:inherit; font-weight:600;}
-
-  .kpi-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(190px,1fr));
-    gap:14px;
-    margin-bottom:22px;
-  }
-  .kpi-card{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:var(--radius);
-    padding:16px 18px;
-  }
-  .kpi-label{font-size:13px; color:var(--text-secondary);}
-  .kpi-value{font-size:28px; font-weight:600; margin-top:6px; color:var(--forest-900);}
-  .kpi-value .frac{font-size:15px; font-weight:400; color:var(--text-muted);}
-  .kpi-sub{font-size:12px; color:var(--text-muted); margin-top:4px;}
-
-  .charts-row{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:16px;
-    margin-bottom:16px;
-  }
-  @media (max-width:760px){ .charts-row{grid-template-columns:1fr;} }
-
-  .card{
-    background:var(--surface);
-    border:1px solid var(--border);
-    border-radius:12px;
-    padding:16px 18px;
-  }
-  .card h3{font-size:14px; font-weight:600; margin:0 0 12px;}
-  .legend-row{display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; font-size:12px; color:var(--text-secondary); justify-content:center;}
-  .legend-dot{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px;}
-
-  .progress-card{margin-bottom:16px;}
-  .progress-track{
-    height:12px; background:var(--surface-2); border-radius:6px; overflow:hidden; border:1px solid var(--border); flex:1;
-  }
-  .progress-fill{height:100%; background:var(--forest-500); border-radius:6px; transition:width .4s ease;}
-  .progress-row{display:flex; align-items:center; gap:12px;}
-  .progress-pct{font-size:15px; font-weight:600; min-width:48px; text-align:right; color:var(--forest-900);}
-
-  .table-card .table-head{
-    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px;
-  }
-  .table-controls{display:flex; gap:8px; flex-wrap:wrap;}
-  input#searchInput, select#statusFilter{
-    font-family:inherit; font-size:13px;
-    border:1px solid var(--border-strong);
-    border-radius:8px;
-    padding:8px 12px;
-    background:var(--surface);
-    color:var(--text-primary);
-  }
-  input#searchInput{min-width:200px;}
-  input#searchInput:focus, select#statusFilter:focus{outline:2px solid var(--forest-500); outline-offset:1px;}
-
-  .table-scroll{overflow-x:auto;}
-  table{width:100%; border-collapse:collapse; font-size:13px; min-width:760px;}
-  thead th{
-    text-align:left; padding:9px 10px; color:var(--text-secondary); font-weight:500;
-    border-bottom:1.5px solid var(--border-strong); white-space:nowrap;
-  }
-  tbody td{padding:9px 10px; border-bottom:1px solid var(--border); vertical-align:top;}
-  tbody tr:hover{background:var(--surface-2);}
-  .badge{
-    display:inline-block; font-size:12px; padding:3px 9px; border-radius:6px; white-space:nowrap;
-  }
-  .badge-green{background:var(--forest-100); color:var(--forest-700);}
-  .badge-amber{background:var(--amber-100); color:var(--amber-600);}
-  .badge-red{background:var(--red-100); color:var(--red-600);}
-  .badge-gray{background:var(--gray-100); color:var(--gray-600);}
-  .muted-cell{color:var(--text-muted);}
-
-  .pagination{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; font-size:13px; color:var(--text-secondary); flex-wrap:wrap;}
-  .pagination button{
-    font-family:inherit; font-size:13px; border:1px solid var(--border-strong); background:var(--surface);
-    border-radius:6px; padding:6px 12px; cursor:pointer; color:var(--text-primary);
-  }
-  .pagination button:disabled{opacity:0.4; cursor:default;}
-  .pagination button:not(:disabled):hover{background:var(--surface-2);}
-
-  .empty-row td{text-align:center; color:var(--text-muted); padding:28px 10px;}
+:root{--ink:#1c2b36;--muted:#5d6b76;--line:#d5dce1;--bg:#f3f5f6;--accent:#17607d}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.5 "Noto Sans Thai","Sarabun","Leelawadee UI",Tahoma,system-ui,sans-serif;color:var(--ink);background:var(--bg)}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+#app{display:grid;grid-template-columns:370px 1fr;height:100%}
+aside{display:flex;flex-direction:column;min-height:0;background:#fff;border-right:1px solid var(--line)}
+header{padding:14px 16px 12px;border-bottom:1px solid var(--line)}
+h1{font-size:17px;margin:0 0 2px}
+.sub{margin:0 0 10px;color:var(--muted);font-size:12.5px}
+.primary{background:var(--accent);color:#fff;border:0;border-radius:6px;padding:7px 14px}
+#layers{flex:1;overflow:auto;padding:10px 12px;min-height:0}
+.empty{color:var(--muted);padding:18px 6px;text-align:center}
+.card{border:1px solid var(--line);border-radius:6px;margin-bottom:8px;background:#fff}
+.lh{display:flex;align-items:center;gap:4px;padding:6px}
+.nm{flex:1;min-width:0;border:1px solid transparent;border-radius:4px;padding:3px 5px;font:inherit;background:transparent;color:var(--ink)}
+.nm:hover,.nm:focus{border-color:var(--line);background:#fff}
+.ib{border:1px solid var(--line);background:#fff;border-radius:4px;min-width:26px;height:26px;padding:0 6px;font-size:12px;color:var(--ink)}
+.ib:disabled{opacity:.35;cursor:default}
+.meta{padding:0 8px 6px 32px;color:var(--muted);font-size:12px}
+.body{padding:8px 10px 10px;border-top:1px solid var(--line);background:#fafbfb}
+.row{display:grid;grid-template-columns:104px 1fr;align-items:center;gap:8px;margin:5px 0}
+.rg{display:flex;align-items:center;gap:6px}
+.rg input{flex:1;min-width:0}
+.rg output{width:36px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+select{font:inherit;width:100%;padding:3px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--ink)}
+input[type=color]{width:44px;height:26px;padding:0;border:1px solid var(--line);border-radius:4px;background:#fff}
+.cats{max-height:170px;overflow:auto;margin:4px 0 6px;border:1px solid var(--line);border-radius:4px;background:#fff;padding:4px 6px}
+.chip{display:flex;align-items:center;gap:8px;padding:2px 0}
+.chip input[type=color]{width:34px;height:22px}
+.chip span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip small{color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);margin:2px 0 4px}
+.base{border-top:1px solid var(--line);padding:10px 16px}
+.base h2,.help summary{font-size:13px;margin:0 0 6px;font-weight:600}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
+.opts label{display:flex;gap:6px;align-items:center}
+.help{border-top:1px solid var(--line);padding:8px 16px;font-size:12.5px;color:var(--muted)}
+.help summary{cursor:pointer;color:var(--ink)}
+.help p{margin:6px 0}
+main{position:relative;min-height:0}
+#map{position:absolute;inset:0}
+#xy{position:absolute;right:10px;bottom:30px;z-index:1000;background:rgba(255,255,255,.92);padding:2px 8px;border-radius:4px;font-size:12px;font-variant-numeric:tabular-nums}
+#toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:1100;background:var(--ink);color:#fff;padding:8px 14px;border-radius:6px;max-width:80%;display:none}
+#drop{position:fixed;inset:0;background:rgba(23,96,125,.12);border:3px dashed var(--accent);display:none;align-items:center;justify-content:center;font-size:20px;color:var(--accent);z-index:2000;pointer-events:none}
+body.dragging #drop{display:flex}
+.lbl{background:rgba(255,255,255,.78);border:0;box-shadow:none;padding:0 3px;font-size:11px;color:var(--ink)}
+.pp table{border-collapse:collapse;font-size:12px}
+.pp th{text-align:left;padding:2px 10px 2px 0;color:var(--muted);font-weight:500;vertical-align:top}
+.pp td{padding:2px 0;word-break:break-word}
+.pt{font-weight:600;margin-bottom:4px}
+.chk{display:flex;gap:6px;align-items:center;margin-top:8px;font-size:12.5px;color:var(--muted)}
+dialog{border:1px solid var(--line);border-radius:8px;padding:16px 18px;width:min(440px,92vw);color:var(--ink)}
+dialog::backdrop{background:rgba(28,43,54,.35)}
+dialog h2{font-size:15px;margin:0 0 6px}
+dialog p{margin:6px 0}
+dialog input[type=text]{width:100%;margin-top:6px;padding:5px;font:inherit;border:1px solid var(--line);border-radius:4px}
+dialog menu{display:flex;gap:8px;justify-content:flex-end;padding:0;margin:14px 0 0}
+.secondary{border:1px solid var(--line);background:#fff;border-radius:6px;padding:7px 14px;color:var(--ink)}
+@media (max-width:760px){
+  #app{grid-template-columns:1fr;grid-template-rows:52vh 1fr}
+  main{order:-1}
+  aside{border-right:0;border-top:1px solid var(--line)}
+}
 </style>
 </head>
 <body>
-
-<header class="top">
-  <div class="inner">
-    <div class="brand">
-      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
-        <circle cx="17" cy="17" r="17" fill="#2E8F63"/>
-        <path d="M17 8c3 3 5 6 5 9.5A5 5 0 0 1 12 17.5C12 14 14 11 17 8z" fill="#DCEEE2"/>
-        <rect x="15.6" y="17" width="2.8" height="9" rx="1" fill="#DCEEE2"/>
-      </svg>
-      <div class="brand-text">
-        <h1>แดชบอร์ดความพร้อมในการปลูกต้นไม้</h1>
-        <p>ติดตามสถานะหน่วยงานแบบเรียลไทม์ &middot; เป้าหมายภายใน 31 ก.ค. 2569</p>
-      </div>
-    </div>
-    <div class="status-line">
-      <span id="lastUpdated">กำลังโหลดข้อมูล...</span>
-      <button id="refreshBtn" aria-label="รีเฟรชข้อมูล">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        รีเฟรช
-      </button>
-    </div>
-  </div>
-</header>
-
-<div class="wrap">
-
-  <div id="stateBanner"></div>
-
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-label">หน่วยงานทั้งหมด</div>
-      <div class="kpi-value" id="kpiTotal">–</div>
-      <div class="kpi-sub">เป้าหมายทั้งประเทศ</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">ตอบแบบฟอร์มแล้ว</div>
-      <div class="kpi-value" id="kpiResponded">–</div>
-      <div class="kpi-sub" id="kpiRespondedSub">&nbsp;</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">เข้าร่วมปลูกต้นไม้</div>
-      <div class="kpi-value" id="kpiJoined">–</div>
-      <div class="kpi-sub" id="kpiJoinedSub">&nbsp;</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">จำนวนต้นไม้รวม (ต้น)</div>
-      <div class="kpi-value" id="kpiTrees">–</div>
-      <div class="kpi-sub">พื้นที่รวม <span id="kpiArea">–</span> ไร่</div>
-    </div>
-  </div>
-
-  <div class="charts-row">
-    <div class="card">
-      <h3>สถานะการเข้าร่วมกิจกรรม</h3>
-      <div style="position:relative; height:190px;">
-        <canvas id="participationChart" role="img" aria-label="กราฟวงกลมแสดงสัดส่วนหน่วยงานที่เข้าร่วม ไม่เข้าร่วม และยังไม่ตอบแบบฟอร์ม"></canvas>
-      </div>
-      <div class="legend-row" id="participationLegend"></div>
-    </div>
-    <div class="card">
-      <h3>สถานะความพร้อมพื้นที่</h3>
-      <div style="position:relative; height:210px;">
-        <canvas id="readinessChart" role="img" aria-label="กราฟแท่งแนวนอนแสดงจำนวนหน่วยงานแยกตามสถานะความพร้อมของพื้นที่ปลูก"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <div class="card progress-card">
-    <h3>ความคืบหน้าตามกำหนดการ (ภายใน 31 ก.ค. 2569)</h3>
-    <div class="progress-row">
-      <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-      <div class="progress-pct" id="progressPct">0%</div>
-    </div>
-    <div class="kpi-sub" style="margin-top:8px;" id="progressSub">&nbsp;</div>
-  </div>
-
-  <div class="card table-card">
-    <div class="table-head">
-      <h3 style="margin:0;">รายชื่อหน่วยงาน</h3>
-      <div class="table-controls">
-        <input id="searchInput" type="text" placeholder="ค้นหาชื่อหน่วยงาน...">
-        <select id="statusFilter">
-          <option value="all">สถานะทั้งหมด</option>
-          <option value="joined">เข้าร่วมปลูกต้นไม้</option>
-          <option value="not_joined">ไม่เข้าร่วม</option>
-          <option value="no_response">ยังไม่ตอบ</option>
-        </select>
-      </div>
-    </div>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>หน่วยงาน</th>
-            <th>การเข้าร่วม</th>
-            <th>ความพร้อมพื้นที่</th>
-            <th>เอกสารสิทธิ์</th>
-            <th style="text-align:right;">ต้นไม้</th>
-            <th>สถานที่ปลูก</th>
-            <th>วันที่ดำเนินการ</th>
-            <th>ผู้ประสานงาน</th>
-            <th>เบอร์ติดต่อ</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody">
-          <tr class="empty-row"><td colspan="9">กำลังโหลดข้อมูล...</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="pagination">
-      <span id="pageInfo">&nbsp;</span>
-      <div style="display:flex; gap:8px;">
-        <button id="prevPage">ก่อนหน้า</button>
-        <button id="nextPage">ถัดไป</button>
-      </div>
-    </div>
-  </div>
-
+<div id="app">
+  <aside>
+    <header>
+      <h1>แผนที่ซ้อนข้อมูล GIS</h1>
+      <p class="sub">เปิดไฟล์ GeoJSON หรือ shapefile (.zip) มาซ้อนกันและปรับสัญลักษณ์ ไฟล์ข้อมูลไม่ถูกอัปโหลดไปที่ใด</p>
+      <button class="primary" id="add">เพิ่มไฟล์</button>
+      <input id="file" type="file" multiple hidden accept=".geojson,.json,.zip,application/geo+json,application/json,application/zip">
+      <label class="chk"><input type="checkbox" id="ignorePrj">เลือกระบบพิกัดเองเสมอ (ไม่ใช้ไฟล์ .prj ของ shapefile)</label>
+    </header>
+    <section id="layers" aria-label="รายการเลเยอร์"></section>
+    <section class="base">
+      <h2>แผนที่พื้นหลัง</h2>
+      <div class="opts" id="baseOpts"></div>
+      <label class="row" style="margin-top:8px"><span>ความทึบพื้นหลัง</span><span class="rg"><input id="baseOp" type="range" min="0" max="1" step="0.05" value="1"><output id="baseOpOut">100%</output></span></label>
+    </section>
+    <details class="help">
+      <summary>ไฟล์ที่รองรับและการเตรียมไฟล์</summary>
+      <p>shapefile: บีบอัดเป็น .zip (ต้องมี .shp .shx .dbf และควรมี .prj) แล้วลากมาวางได้เลย ตารางภาษาไทยอ่านได้ทั้ง UTF-8 และ Windows-874 (TIS-620)</p>
+      <p>ถ้าไฟล์ไม่ใช่พิกัดลองจิจูด/ละติจูด เว็บแมปจะถามระบบพิกัดต้นทางและแปลงเป็น WGS 84 ให้ ถ้าเลือกผิดโซนหรือ datum ตำแหน่งจะเลื่อนได้หลายร้อยเมตร ควรตรวจกับจุดที่รู้ตำแหน่ง</p>
+      <p>GeoJSON จาก QGIS: คลิกขวาที่เลเยอร์ เลือก ส่งออก แล้วเลือก บันทึกวัตถุเป็น รูปแบบ GeoJSON</p>
+    </details>
+  </aside>
+  <main>
+    <div id="map"></div>
+    <div id="xy">ลากเมาส์บนแผนที่เพื่อดูพิกัด</div>
+    <div id="toast" role="status"></div>
+  </main>
 </div>
+<dialog id="crsDlg">
+  <form method="dialog">
+    <h2>เลือกระบบพิกัดของไฟล์</h2>
+    <p id="crsMsg"></p>
+    <select id="crsSel" aria-label="ระบบพิกัดต้นทาง"></select>
+    <input id="crsCustom" type="text" hidden aria-label="proj4 string" placeholder="proj4 string เช่น +proj=utm +zone=47 +datum=WGS84 +units=m +no_defs">
+    <menu>
+      <button type="button" class="secondary" id="crsCancel">ข้ามไฟล์นี้</button>
+      <button type="submit" class="primary" value="ok">ใช้ระบบพิกัดนี้</button>
+    </menu>
+  </form>
+</dialog>
+<div id="drop">วางไฟล์ GeoJSON ที่นี่</div>
 
 <script>
-/* ---------- Configuration ---------- */
-/* แก้ค่าตรงนี้ให้ตรงกับ Google Sheet ของคุณ */
-const CONFIG = {
-  // นำ Web app URL จาก Google Apps Script (ลงท้ายด้วย /exec) มาใส่ตรงนี้
-  API_URL: 'https://script.google.com/macros/s/AKfycbzQQtaWL3kGkoiWNy8so_8l4UV4vpwFqm2as4lJ9l_no8nPKDeHgY8OEYHgek3GVJGt/exec',
-  TOTAL_UNITS: 104,     // จำนวนหน่วยงานทั้งหมดตามเป้าหมาย
-};
+const PALETTE=['#d1495b','#2e86ab','#edae49','#00798c','#8d5a97','#66a182','#e07a5f','#3d5a80','#b8b42d','#9c6644','#4ea8de','#6a994e'];
+const DASH={solid:null,dash:'8 6',dot:'2 6'};
+let seq=0, lyrs=[], baseOp=1, curBase=null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-let allRows = [];
-let colIndex = {};
-let currentPage = 1;
-const PAGE_SIZE = 12;
-let participationChart, readinessChart;
-
-/* ---------- Fetch & parse ---------- */
-async function fetchSheetData(){
-  const banner = document.getElementById('stateBanner');
-  banner.style.display = 'none';
-  banner.classList.remove('error');
-  setRefreshing(true);
-
-  const url = `${CONFIG.API_URL}?t=${Date.now()}`;
-
-  try {
-    const res = await fetch(url);
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const parsed = await res.json();
-
-    if(parsed.status === 'error'){
-      throw new Error(parsed.message || 'api_error');
-    }
-
-    const cols = parsed.cols.map(c => (c || '').toString().trim());
-    const rows = parsed.rows;
-
-    mapColumns(cols);
-    allRows = rows.filter(r => (r[colIndex.unit] || '').toString().trim() !== '');
-
-    renderAll();
-    document.getElementById('lastUpdated').textContent =
-      'อัปเดตล่าสุด ' + new Date().toLocaleString('th-TH', {dateStyle:'medium', timeStyle:'short'});
-
-  } catch(err){
-    console.error(err);
-    banner.classList.add('error');
-    banner.style.display = 'block';
-    banner.innerHTML = 'ไม่สามารถดึงข้อมูลจาก API ได้ กรุณาตรวจสอบว่า '
-      + '1) วาง Web app URL ที่ถูกต้องใน <code>CONFIG.API_URL</code> แล้ว '
-      + '2) Deploy ตั้งค่า <b>Execute as: Me</b> และ <b>Who has access: Anyone</b> '
-      + 'แล้วกดปุ่มรีเฟรชอีกครั้ง';
-    document.getElementById('lastUpdated').textContent = 'ดึงข้อมูลไม่สำเร็จ';
-  } finally {
-    setRefreshing(false);
+function h(tag,attrs={},...kids){
+  const e=document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs)){
+    if(k==='class') e.className=v;
+    else if(k.startsWith('on')) e.addEventListener(k.slice(2),v);
+    else if(v!==false&&v!=null) e.setAttribute(k,v===true?'':v);
   }
+  kids.flat().forEach(c=>{ if(c==null) return; e.append(c.nodeType?c:document.createTextNode(c)); });
+  return e;
+}
+let toastTimer;
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.style.display='none',6000);
 }
 
-function setRefreshing(on){
-  const btn = document.getElementById('refreshBtn');
-  btn.classList.toggle('spinning', on);
-  btn.disabled = on;
-}
-
-function mapColumns(headers){
-  const find = (patterns) => headers.findIndex(h => patterns.some(p => h.includes(p)));
-  colIndex = {
-    unit: find(['หน่วยงาน']),
-    participation: find(['เข้าร่วมกิจกรรม', 'เข้าร่วม']),
-    readiness: find(['ความพร้อม']),
-    location: find(['สถานที่ปลูก']),
-    area: find(['ขนาดพื้นที่']),
-    landStatus: find(['เอกสารสิทธิ์']),
-    trees: find(['จำนวนต้นไม้']),
-    date: headers.findIndex(h => h.includes('วัน') && h.includes('ดำเนินการ')),
-    coordinator: find(['ผู้ประสานงาน']),
-    phone: find(['เบอร์ติดต่อ', 'เบอร์']),
-    notes: find(['หมายเหตุ']),
-  };
-}
-
-const val = (row, key) => {
-  const i = colIndex[key];
-  return (i === undefined || i < 0 || row[i] === undefined) ? '' : String(row[i]).trim();
+/* ---------- map + basemaps ---------- */
+const map=L.map('map',{preferCanvas:true}).setView([13.0,101.0],6);
+L.control.scale({imperial:false,position:'bottomleft'}).addTo(map);
+const BASE={
+  osm:{name:'แผนที่ถนน',layer:L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'})},
+  sat:{name:'ภาพถ่ายดาวเทียม',layer:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri, Maxar, Earthstar Geographics'})},
+  light:{name:'พื้นหลังสีอ่อน',layer:L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:19,attribution:'© OpenStreetMap, © CARTO'})},
+  none:{name:'ไม่มีพื้นหลัง',layer:null}
 };
-
-/* ---------- Categorization helpers ---------- */
-function participationCategory(row){
-  const v = val(row, 'participation');
-  if(!v) return 'no_response';
-  if(v.includes('ไม่เข้าร่วม')) return 'not_joined';
-  if(v.includes('เข้าร่วม')) return 'joined';
-  return 'no_response';
+function setBase(k){
+  if(curBase) map.removeLayer(curBase);
+  curBase=BASE[k].layer;
+  if(curBase){ curBase.addTo(map); curBase.setOpacity(baseOp); }
 }
-function readinessCategory(row){
-  const v = val(row, 'readiness');
-  if(v.includes('มีพื้นที่พร้อมปลูก')) return 'มีพื้นที่พร้อมปลูก';
-  if(v.includes('กำลังจัดหา')) return 'กำลังจัดหาพื้นที่';
-  if(v.includes('ไม่มีพื้นที่ปลูก')) return 'ไม่มีพื้นที่ปลูก';
-  if(v) return 'อื่นๆ';
+Object.entries(BASE).forEach(([k,b])=>{
+  $('#baseOpts').append(h('label',{},h('input',{type:'radio',name:'base',value:k,checked:k==='osm',onchange:()=>setBase(k)}),b.name));
+});
+$('#baseOp').addEventListener('input',e=>{
+  baseOp=+e.target.value; $('#baseOpOut').textContent=Math.round(baseOp*100)+'%';
+  if(curBase) curBase.setOpacity(baseOp);
+});
+setBase('osm');
+map.on('mousemove',e=>{ $('#xy').textContent=e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5)+'  ซูม '+map.getZoom(); });
+
+/* ---------- data helpers ---------- */
+function normalize(d){
+  if(!d||typeof d!=='object') return null;
+  if(d.type==='FeatureCollection'&&Array.isArray(d.features)) return d;
+  if(d.type==='Feature') return {type:'FeatureCollection',features:[d]};
+  if(/^(Point|MultiPoint|LineString|MultiLineString|Polygon|MultiPolygon|GeometryCollection)$/.test(d.type))
+    return {type:'FeatureCollection',features:[{type:'Feature',properties:{},geometry:d}]};
   return null;
 }
-function landBadge(row){
-  const v = val(row, 'landStatus');
-  if(v.includes('ไม่มี')) return {label:v, cls:'badge-red'};
-  if(v.includes('มีเอกสารสิทธิ์')) return {label:v, cls:'badge-green'};
-  return {label: v || '–', cls:'badge-gray'};
+function firstXY(g){
+  if(!g) return null;
+  if(g.type==='GeometryCollection'){ for(const x of g.geometries){ const r=firstXY(x); if(r) return r; } return null; }
+  let c=g.coordinates;
+  while(Array.isArray(c)&&Array.isArray(c[0])) c=c[0];
+  return Array.isArray(c)&&typeof c[0]==='number'?c:null;
 }
-function participationBadge(cat, raw){
-  if(cat === 'joined') return {label: raw || 'เข้าร่วมปลูกต้นไม้', cls:'badge-green'};
-  if(cat === 'not_joined') return {label: raw || 'ไม่เข้าร่วม', cls:'badge-red'};
-  return {label:'ยังไม่ตอบ', cls:'badge-gray'};
+function geomTypes(g,fl){
+  if(!g) return;
+  if(g.type==='GeometryCollection') return g.geometries.forEach(x=>geomTypes(x,fl));
+  if(/Point/.test(g.type)) fl.point=true;
+  else if(/Line/.test(g.type)) fl.line=true;
+  else if(/Polygon/.test(g.type)) fl.poly=true;
 }
-function readinessBadgeClass(cat){
-  if(cat === 'มีพื้นที่พร้อมปลูก') return 'badge-green';
-  if(cat === 'กำลังจัดหาพื้นที่') return 'badge-amber';
-  if(cat === 'ไม่มีพื้นที่ปลูก') return 'badge-red';
-  if(cat) return 'badge-gray';
-  return 'badge-gray';
+function styleFor(lyr,f){
+  const s=lyr.style;
+  const o={color:s.color,weight:s.weight,opacity:s.opacity,fillColor:s.fillColor,fillOpacity:s.fillOpacity,radius:s.radius,dashArray:DASH[s.dash]};
+  if(lyr.cat.field){
+    const v=String((f.properties||{})[lyr.cat.field]??'(ว่าง)');
+    const c=lyr.cat.colors[v];
+    if(c){ if(/Line/.test(f.geometry?.type||'')) o.color=c; else o.fillColor=c; }
+  }
+  return o;
 }
-function parseNumber(str){
-  const m = String(str).replace(/,/g,'').match(/[\d.]+/);
-  return m ? parseFloat(m[0]) : 0;
+function popupHtml(lyr,f){
+  const p=f.properties||{};
+  const rows=Object.keys(p).map(k=>{
+    const v=p[k]; const t=(v!==null&&typeof v==='object')?JSON.stringify(v):(v??'');
+    return `<tr><th>${esc(k)}</th><td>${esc(t)}</td></tr>`;
+  }).join('');
+  return `<div class="pp"><div class="pt">${esc(lyr.name)}</div>${rows?`<table>${rows}</table>`:'<i>ไม่มีข้อมูลแอตทริบิวต์</i>'}</div>`;
 }
+const restyle=lyr=>lyr.gj.setStyle(f=>styleFor(lyr,f));
+const setZ=()=>lyrs.forEach((l,i)=>{ l.pane.style.zIndex=400+i; });
 
-/* ---------- Render ---------- */
-function renderAll(){
-  renderKpis();
-  renderCharts();
-  renderProgress();
-  currentPage = 1;
-  renderTable();
-}
-
-function renderKpis(){
-  const total = CONFIG.TOTAL_UNITS;
-  const responded = allRows.length;
-  const joined = allRows.filter(r => participationCategory(r) === 'joined').length;
-  const totalTrees = allRows.reduce((s,r) => s + parseNumber(val(r,'trees')), 0);
-  const totalArea = allRows.reduce((s,r) => s + parseNumber(val(r,'area')), 0);
-
-  document.getElementById('kpiTotal').textContent = total.toLocaleString('th-TH');
-  document.getElementById('kpiResponded').innerHTML = `${responded.toLocaleString('th-TH')} <span class="frac">/ ${total}</span>`;
-  document.getElementById('kpiRespondedSub').textContent = `${Math.round(responded/total*100)}% ของหน่วยงานทั้งหมด`;
-  document.getElementById('kpiJoined').innerHTML = `${joined.toLocaleString('th-TH')} <span class="frac">/ ${total}</span>`;
-  document.getElementById('kpiJoinedSub').textContent = `${Math.round(joined/total*100)}% ของหน่วยงานทั้งหมด`;
-  document.getElementById('kpiTrees').textContent = Math.round(totalTrees).toLocaleString('th-TH');
-  document.getElementById('kpiArea').textContent = totalArea.toLocaleString('th-TH');
-}
-
-function renderCharts(){
-  const joined = allRows.filter(r => participationCategory(r) === 'joined').length;
-  const notJoined = allRows.filter(r => participationCategory(r) === 'not_joined').length;
-  const noResponse = CONFIG.TOTAL_UNITS - joined - notJoined;
-
-  const pData = [joined, notJoined, Math.max(noResponse,0)];
-  const pColors = ['#2E8F63', '#B23B2E', '#C9C6B8'];
-  const pLabels = ['เข้าร่วม', 'ไม่เข้าร่วม', 'ยังไม่ตอบ'];
-
-  if(participationChart) participationChart.destroy();
-  participationChart = new Chart(document.getElementById('participationChart'), {
-    type:'doughnut',
-    data:{ labels:pLabels, datasets:[{ data:pData, backgroundColor:pColors, borderWidth:2, borderColor:'#fff' }] },
-    options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ display:false } } }
-  });
-  document.getElementById('participationLegend').innerHTML = pLabels.map((l,i) =>
-    `<span><span class="legend-dot" style="background:${pColors[i]}"></span>${l} ${pData[i]}</span>`
-  ).join('');
-
-  const buckets = ['มีพื้นที่พร้อมปลูก','กำลังจัดหาพื้นที่','ไม่มีพื้นที่ปลูก','อื่นๆ'];
-  const rColors = ['#2E8F63','#B9791C','#B23B2E','#9A9689'];
-  const rData = buckets.map(b => allRows.filter(r => readinessCategory(r) === b).length);
-
-  if(readinessChart) readinessChart.destroy();
-  readinessChart = new Chart(document.getElementById('readinessChart'), {
-    type:'bar',
-    data:{ labels:buckets, datasets:[{ data:rData, backgroundColor:rColors, borderRadius:4, barThickness:20 }] },
-    options:{
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:false } },
-      scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } }, y:{ grid:{ display:false } } }
+function applyLabels(lyr){
+  if(lyr.label&&lyr.fc.features.length>3000){ toast('เลเยอร์นี้มีวัตถุมากกว่า 3,000 รายการ จึงไม่แสดงป้ายกำกับ เพื่อไม่ให้แผนที่ช้า'); lyr.label=''; renderList(); }
+  lyr.gj.eachLayer(l=>{
+    l.unbindTooltip();
+    if(lyr.label){
+      const v=(l.feature.properties||{})[lyr.label];
+      if(v!=null&&v!=='') l.bindTooltip(String(v),{permanent:true,direction:'center',className:'lbl',opacity:1});
     }
   });
 }
-
-function renderProgress(){
-  const joined = allRows.filter(r => participationCategory(r) === 'joined').length;
-  const pct = Math.round(joined / CONFIG.TOTAL_UNITS * 100);
-  document.getElementById('progressFill').style.width = pct + '%';
-  document.getElementById('progressPct').textContent = pct + '%';
-  document.getElementById('progressSub').textContent =
-    `${joined.toLocaleString('th-TH')} จาก ${CONFIG.TOTAL_UNITS} หน่วยงานยืนยันเข้าร่วมปลูกต้นไม้แล้ว`;
+function setCat(lyr,field){
+  lyr.cat={field,colors:{},counts:{}};
+  if(field){
+    const m=new Map();
+    lyr.fc.features.forEach(f=>{ const v=String((f.properties||{})[field]??'(ว่าง)'); m.set(v,(m.get(v)||0)+1); });
+    if(m.size>40){
+      toast('ฟิลด์ "'+field+'" มีค่าไม่ซ้ำ '+m.size+' ค่า มากเกินไปสำหรับแบ่งสี (สูงสุด 40 ค่า)');
+      lyr.cat.field='';
+    }else{
+      [...m.keys()].sort((a,b)=>a.localeCompare(b,'th',{numeric:true})).forEach((v,i)=>{ lyr.cat.colors[v]=PALETTE[i%PALETTE.length]; });
+      lyr.cat.counts=Object.fromEntries(m);
+    }
+  }
+  restyle(lyr); renderList();
 }
 
-function getFilteredRows(){
-  const search = document.getElementById('searchInput').value.trim().toLowerCase();
-  const statusFilter = document.getElementById('statusFilter').value;
-  return allRows.filter(r => {
-    const matchesSearch = !search || val(r,'unit').toLowerCase().includes(search);
-    const matchesStatus = statusFilter === 'all' || participationCategory(r) === statusFilter;
-    return matchesSearch && matchesStatus;
+/* ---------- shapefile (.zip) + CRS ---------- */
+const CRS_LIST=[
+  ['32647','WGS 84 / UTM โซน 47N (EPSG:32647)','+proj=utm +zone=47 +datum=WGS84 +units=m +no_defs'],
+  ['32648','WGS 84 / UTM โซน 48N (EPSG:32648)','+proj=utm +zone=48 +datum=WGS84 +units=m +no_defs'],
+  ['24047','Indian 1975 / UTM โซน 47N (EPSG:24047)','+proj=utm +zone=47 +a=6377276.345 +rf=300.8017 +towgs84=210,814,289,0,0,0,0 +units=m +no_defs'],
+  ['24048','Indian 1975 / UTM โซน 48N (EPSG:24048)','+proj=utm +zone=48 +a=6377276.345 +rf=300.8017 +towgs84=210,814,289,0,0,0,0 +units=m +no_defs'],
+  ['3857','Web Mercator (EPSG:3857)','+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs'],
+  ['custom','กำหนดเอง (proj4 string)','']
+];
+CRS_LIST.forEach(([k,t])=>$('#crsSel').append(h('option',{value:k},t)));
+$('#crsSel').addEventListener('change',e=>{ $('#crsCustom').hidden=e.target.value!=='custom'; });
+$('#crsCancel').addEventListener('click',()=>$('#crsDlg').close('cancel'));
+
+function needsCrs(fc){
+  for(const f of fc.features.slice(0,50)){
+    const c=firstXY(f.geometry);
+    if(c&&(Math.abs(c[0])>180||Math.abs(c[1])>90)) return true;
+  }
+  return false;
+}
+function reprojectFC(fc,def){
+  if(typeof proj4==='undefined') throw new Error('lib');
+  const tr=proj4(def,'WGS84');
+  const pt=c=>{
+    const r=tr.forward([c[0],c[1]]);
+    if(!isFinite(r[0])||!isFinite(r[1])) throw new Error('bad coordinate');
+    return c.length>2?[r[0],r[1],c[2]]:[r[0],r[1]];
+  };
+  const walk=c=>typeof c[0]==='number'?pt(c):c.map(walk);
+  const geom=g=>!g?g:g.type==='GeometryCollection'?{...g,geometries:g.geometries.map(geom)}:{...g,coordinates:walk(g.coordinates)};
+  return {...fc,features:fc.features.map(f=>({...f,geometry:geom(f.geometry)}))};
+}
+function askCrs(name,fc){
+  return new Promise(resolve=>{
+    const dlg=$('#crsDlg'), sel=$('#crsSel'), cus=$('#crsCustom');
+    let c=null; for(const f of fc.features){ c=firstXY(f.geometry); if(c) break; }
+    $('#crsMsg').textContent='ไฟล์ "'+name+'" ไม่ใช่พิกัดลองจิจูด/ละติจูด (ตัวอย่างค่าพิกัด '+(c?c[0].toFixed(1)+', '+c[1].toFixed(1):'-')+') เลือกระบบพิกัดเดิมของไฟล์ เพื่อแปลงเป็น WGS 84';
+    sel.value=CRS_LIST[0][0]; cus.hidden=true; cus.value='';
+    dlg.returnValue='';
+    dlg.addEventListener('close',()=>{
+      if(dlg.returnValue!=='ok') return resolve(null);
+      const k=sel.value, def=k==='custom'?cus.value.trim():CRS_LIST.find(x=>x[0]===k)[2];
+      if(!def){ toast('ยังไม่ได้ใส่ proj4 string จึงข้ามไฟล์นี้'); return resolve(null); }
+      resolve(def);
+    },{once:true});
+    dlg.showModal();
   });
 }
-
-function renderTable(){
-  const filtered = getFilteredRows();
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  currentPage = Math.min(currentPage, totalPages);
-  const start = (currentPage - 1) * PAGE_SIZE;
-  const pageRows = filtered.slice(start, start + PAGE_SIZE);
-
-  const tbody = document.getElementById('tableBody');
-  if(pageRows.length === 0){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">ไม่พบข้อมูลที่ตรงกับเงื่อนไข</td></tr>`;
-  } else {
-    tbody.innerHTML = pageRows.map(r => {
-      const pCat = participationCategory(r);
-      const pBadge = participationBadge(pCat, val(r,'participation'));
-      const rCat = readinessCategory(r);
-      const lBadge = landBadge(r);
-      const trees = parseNumber(val(r,'trees'));
-      return `<tr>
-        <td>${val(r,'unit') || '–'}</td>
-        <td><span class="badge ${pBadge.cls}">${pBadge.label}</span></td>
-        <td>${rCat ? `<span class="badge ${readinessBadgeClass(rCat)}">${rCat}</span>` : '<span class="muted-cell">–</span>'}</td>
-        <td><span class="badge ${lBadge.cls}">${lBadge.label}</span></td>
-        <td style="text-align:right;">${trees ? trees.toLocaleString('th-TH') : '<span class="muted-cell">–</span>'}</td>
-        <td>${val(r,'location') || '<span class="muted-cell">–</span>'}</td>
-        <td>${val(r,'date') || '<span class="muted-cell">–</span>'}</td>
-        <td>${val(r,'coordinator') || '<span class="muted-cell">–</span>'}</td>
-        <td>${val(r,'phone') || '<span class="muted-cell">–</span>'}</td>
-      </tr>`;
-    }).join('');
+const hasBad=rows=>rows.some(r=>Object.values(r).some(v=>typeof v==='string'&&v.includes('\ufffd')));
+function parseDbfSafe(buf,cpg){
+  let rows=null;
+  try{ rows=shp.parseDbf(buf,cpg); }catch(e){ rows=null; }
+  if(!rows||hasBad(rows)){
+    try{ const r2=shp.parseDbf(buf,'windows-874'); if(!hasBad(r2)) return r2; }catch(e){}
   }
-
-  document.getElementById('pageInfo').textContent =
-    filtered.length === 0 ? '' : `แสดง ${start+1}-${Math.min(start+PAGE_SIZE, filtered.length)} จาก ${filtered.length} หน่วยงาน`;
-  document.getElementById('prevPage').disabled = currentPage <= 1;
-  document.getElementById('nextPage').disabled = currentPage >= totalPages;
+  return rows||shp.parseDbf(buf);
+}
+async function readZip(buf,ignorePrj){
+  const zip=await JSZip.loadAsync(buf);
+  const names=Object.keys(zip.files).filter(n=>!zip.files[n].dir&&!n.includes('__MACOSX')&&!/(^|\/)\._/.test(n));
+  const stems=names.filter(n=>/\.shp$/i.test(n)).map(n=>n.slice(0,-4));
+  if(!stems.length) throw new Error('no shp');
+  const find=(stem,ext)=>names.find(n=>n.toLowerCase()===(stem+'.'+ext).toLowerCase());
+  const out=[];
+  for(const stem of stems){
+    const shpB=await zip.file(find(stem,'shp')).async('uint8array');
+    const prjN=find(stem,'prj'), dbfN=find(stem,'dbf'), cpgN=find(stem,'cpg');
+    const prj=(prjN&&!ignorePrj)?await zip.file(prjN).async('text'):null;
+    const geoms=shp.parseShp(shpB,prj||false);
+    let dbf;
+    if(dbfN){
+      const dbfB=await zip.file(dbfN).async('uint8array');
+      const cpg=cpgN?(await zip.file(cpgN).async('text')).trim():undefined;
+      dbf=parseDbfSafe(dbfB,cpg);
+    }
+    const fc=shp.combine([geoms,dbf]);
+    fc.fileName=stem.split('/').pop();
+    out.push(fc);
+  }
+  return out;
 }
 
-/* ---------- Events ---------- */
-document.getElementById('refreshBtn').addEventListener('click', fetchSheetData);
-document.getElementById('searchInput').addEventListener('input', () => { currentPage = 1; renderTable(); });
-document.getElementById('statusFilter').addEventListener('change', () => { currentPage = 1; renderTable(); });
-document.getElementById('prevPage').addEventListener('click', () => { currentPage--; renderTable(); });
-document.getElementById('nextPage').addEventListener('click', () => { currentPage++; renderTable(); });
+/* ---------- layers ---------- */
+async function addLayer(name,raw){
+  let fc=normalize(raw), reprojected=false;
+  if(!fc||!fc.features.length){ toast('"'+name+'": ไม่พบข้อมูลที่แสดงได้ (ไฟล์ต้องเป็น GeoJSON หรือ shapefile)'); return; }
+  if(needsCrs(fc)){
+    const def=await askCrs(name,fc);
+    if(!def) return;
+    try{ fc=reprojectFC(fc,def); reprojected=true; }
+    catch(err){ toast(err.message==='lib'?'โหลดไลบรารีแปลงพิกัดไม่สำเร็จ (ต้องเชื่อมต่ออินเทอร์เน็ต)':'แปลงพิกัดไม่สำเร็จ ลองเลือกระบบพิกัดหรือโซนอื่น'); return; }
+  }
+  const id=++seq, paneName='p'+id, pane=map.createPane(paneName);
+  const fl={poly:false,line:false,point:false}, keys=new Set();
+  fc.features.forEach((f,i)=>{ geomTypes(f.geometry,fl); if(i<500) Object.keys(f.properties||{}).forEach(k=>keys.add(k)); });
+  const color=PALETTE[(id-1)%PALETTE.length];
+  const style={color,weight:2,opacity:1,fillColor:color,fillOpacity:.3,radius:5,dash:'solid'};
+  if(fl.line&&!fl.poly) style.weight=3;
+  if(fl.point&&!fl.poly&&!fl.line){ style.color='#ffffff'; style.weight=1; style.fillOpacity=.9; style.radius=6; }
+  const lyr={id,name,visible:true,open:true,pane,paneName,fc,flags:fl,fields:[...keys],style,cat:{field:'',colors:{},counts:{}},label:''};
+  lyr.gj=L.geoJSON(fc,{
+    pane:paneName,
+    style:f=>styleFor(lyr,f),
+    pointToLayer:(f,ll)=>L.circleMarker(ll,{pane:paneName,...styleFor(lyr,f)}),
+    onEachFeature:(f,l)=>l.bindPopup(()=>popupHtml(lyr,f),{maxWidth:360,maxHeight:260})
+  });
+  lyrs.push(lyr); setZ(); lyr.gj.addTo(map); zoomTo(lyr); renderList();
+  if(reprojected){
+    const ct=lyr.gj.getBounds().getCenter();
+    if(!(ct.lng>=97&&ct.lng<=106&&ct.lat>=5&&ct.lat<=21)) toast('หลังแปลงพิกัด ตำแหน่งอยู่นอกประเทศไทย ถ้าข้อมูลควรอยู่ในไทยให้ตรวจโซน (47N/48N) และ datum อีกครั้ง');
+  }
+}
+function zoomTo(lyr){ const b=lyr.gj.getBounds(); if(b.isValid()) map.fitBounds(b,{padding:[30,30],maxZoom:18}); }
+function move(lyr,d){
+  const i=lyrs.indexOf(lyr), j=i+d; if(j<0||j>=lyrs.length) return;
+  [lyrs[i],lyrs[j]]=[lyrs[j],lyrs[i]]; setZ(); renderList();
+}
+function removeLyr(lyr){
+  map.removeLayer(lyr.gj); lyr.pane.remove(); lyrs=lyrs.filter(l=>l!==lyr); renderList();
+}
 
-fetchSheetData();
+/* ---------- UI builders ---------- */
+const btn=(t,title,fn,dis)=>h('button',{class:'ib',title,'aria-label':title,onclick:fn,disabled:!!dis},t);
+const row=(label,ctl)=>h('label',{class:'row'},h('span',{},label),ctl);
+const color=(val,fn)=>h('input',{type:'color',value:val,oninput:e=>fn(e.target.value)});
+function range(min,max,step,val,fn,fmt=v=>v){
+  const out=h('output',{},fmt(val));
+  const i=h('input',{type:'range',min,max,step,value:val,oninput:e=>{ const v=+e.target.value; out.textContent=fmt(v); fn(v); }});
+  return h('span',{class:'rg'},i,out);
+}
+function select(opts,val,fn){
+  const s=h('select',{onchange:e=>fn(e.target.value)},opts.map(([v,t])=>h('option',{value:v},t)));
+  s.value=val; return s;
+}
+const pct=v=>Math.round(v*100)+'%';
+
+function card(lyr){
+  const idx=lyrs.indexOf(lyr), s=lyr.style, fl=lyr.flags, rs=()=>restyle(lyr);
+  const types=[fl.point&&'จุด',fl.line&&'เส้น',fl.poly&&'พื้นที่'].filter(Boolean).join('/');
+  const el=h('div',{class:'card'},
+    h('div',{class:'lh'},
+      h('input',{type:'checkbox',checked:lyr.visible,'aria-label':'แสดงเลเยอร์',onchange:e=>{ lyr.visible=e.target.checked; lyr.visible?map.addLayer(lyr.gj):map.removeLayer(lyr.gj); }}),
+      h('input',{class:'nm',type:'text',value:lyr.name,'aria-label':'ชื่อเลเยอร์',oninput:e=>{ lyr.name=e.target.value; }}),
+      btn('ซูม','ซูมไปที่เลเยอร์',()=>zoomTo(lyr)),
+      btn('▲','เลื่อนขึ้น',()=>move(lyr,1),idx===lyrs.length-1),
+      btn('▼','เลื่อนลง',()=>move(lyr,-1),idx===0),
+      btn('✕','ลบเลเยอร์',()=>removeLyr(lyr)),
+      btn(lyr.open?'ซ่อน':'สไตล์','ปรับสัญลักษณ์',()=>{ lyr.open=!lyr.open; renderList(); })
+    ),
+    h('div',{class:'meta'},lyr.fc.features.length.toLocaleString('th-TH')+' วัตถุ ('+(types||'ไม่ทราบชนิด')+')')
+  );
+  if(lyr.open){
+    const body=h('div',{class:'body'});
+    body.append(
+      row(fl.line&&!fl.poly&&!fl.point?'สีเส้น':'สีเส้นขอบ',color(s.color,v=>{ s.color=v; rs(); })),
+      row('ความหนาเส้น',range(0,10,0.5,s.weight,v=>{ s.weight=v; rs(); })),
+      row('ความทึบเส้น',range(0,1,0.05,s.opacity,v=>{ s.opacity=v; rs(); },pct))
+    );
+    if(fl.poly||fl.point) body.append(
+      row('สีเติม',color(s.fillColor,v=>{ s.fillColor=v; rs(); })),
+      row('ความทึบสีเติม',range(0,1,0.05,s.fillOpacity,v=>{ s.fillOpacity=v; rs(); },pct))
+    );
+    if(fl.point) body.append(row('ขนาดจุด',range(2,24,1,s.radius,v=>{ s.radius=v; rs(); })));
+    if(fl.line||fl.poly) body.append(row('ลายเส้น',select([['solid','เส้นทึบ'],['dash','เส้นประ'],['dot','จุด']],s.dash,v=>{ s.dash=v; rs(); })));
+    body.append(row('แบ่งสีตามฟิลด์',select([['','ไม่ใช้'],...lyr.fields.map(k=>[k,k])],lyr.cat.field,v=>setCat(lyr,v))));
+    if(lyr.cat.field){
+      body.append(
+        h('p',{class:'hint'},fl.line&&!fl.poly&&!fl.point?'สีเส้นจะเปลี่ยนตามค่า':'สีเติมจะเปลี่ยนตามค่า (สีเส้นขอบยังใช้ค่าด้านบน)'),
+        h('div',{class:'cats'},Object.entries(lyr.cat.colors).map(([v,c])=>
+          h('label',{class:'chip'},color(c,x=>{ lyr.cat.colors[v]=x; rs(); }),h('span',{title:v},v),h('small',{},lyr.cat.counts[v]))))
+      );
+    }
+    body.append(row('ป้ายกำกับ',select([['','ไม่แสดง'],...lyr.fields.map(k=>[k,k])],lyr.label,v=>{ lyr.label=v; applyLabels(lyr); })));
+    body.append(h('p',{class:'hint'},'คลิกวัตถุบนแผนที่เพื่อดูตารางแอตทริบิวต์'));
+    el.append(body);
+  }
+  return el;
+}
+function renderList(){
+  const box=$('#layers'); box.replaceChildren();
+  if(!lyrs.length){ box.append(h('p',{class:'empty'},'ยังไม่มีเลเยอร์ ลากไฟล์ .geojson มาวางในหน้านี้ หรือกดปุ่ม "เพิ่มไฟล์"')); return; }
+  [...lyrs].reverse().forEach(l=>box.append(card(l)));
+}
+
+/* ---------- file input + drag and drop ---------- */
+async function handleFiles(files){
+  for(const f of files){
+    if(f.size>40e6&&!confirm('ไฟล์ "'+f.name+'" ใหญ่กว่า 40 MB อาจทำให้เบราว์เซอร์ช้า ต้องการเปิดต่อหรือไม่')) continue;
+    const base=f.name.replace(/\.[^.]+$/,''), isZip=/\.zip$/i.test(f.name);
+    try{
+      if(isZip){
+        if(typeof shp==='undefined'||typeof JSZip==='undefined') throw new Error('lib');
+        const list=await readZip(await f.arrayBuffer(),$('#ignorePrj').checked);
+        for(const fc of list) await addLayer(list.length>1?fc.fileName:base,fc);
+      }else{
+        await addLayer(base,JSON.parse(await f.text()));
+      }
+    }catch(err){
+      console.error(err);
+      toast(err.message==='lib'?'โหลดไลบรารีสำหรับ shapefile ไม่สำเร็จ (ต้องเชื่อมต่ออินเทอร์เน็ต)'
+        :isZip?'อ่านไฟล์ "'+f.name+'" ไม่ได้ ไฟล์ zip ต้องมี .shp .shx .dbf ครบ'
+        :'อ่านไฟล์ "'+f.name+'" ไม่ได้ ไฟล์ต้องเป็น GeoJSON ที่ถูกต้อง');
+    }
+  }
+}
+$('#add').addEventListener('click',()=>$('#file').click());
+$('#file').addEventListener('change',e=>{ handleFiles([...e.target.files]); e.target.value=''; });
+let dragDepth=0;
+addEventListener('dragenter',e=>{ e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('dragleave',()=>{ if(--dragDepth<=0){ dragDepth=0; document.body.classList.remove('dragging'); } });
+addEventListener('drop',e=>{ e.preventDefault(); dragDepth=0; document.body.classList.remove('dragging'); handleFiles([...e.dataTransfer.files]); });
+
+renderList();
 </script>
 </body>
 </html>
